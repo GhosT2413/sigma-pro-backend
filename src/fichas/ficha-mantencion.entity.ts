@@ -24,6 +24,12 @@ export class FichaMantencion {
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   fecha_ingreso: Date;
 
+  @Column({ type: 'datetime', nullable: true })
+  fecha_inicio: Date;
+
+  @Column({ type: 'datetime', nullable: true })
+  fecha_finalizacion: Date;
+
   @Column({ type: 'int', unsigned: true })
   kilometraje_ingreso: number;
 

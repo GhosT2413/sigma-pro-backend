@@ -30,8 +30,53 @@ export class AuthService {
 
         return {
             access_token: this.jwtService.sign(payload),
+            usuario: {
+                id: usuario.id,
+                nombre_completo: usuario.nombre_completo,
+                email: usuario.email,
+                telefono: usuario.telefono,
+                role: usuario.role,
+            }
         };
-    } // <-- EL MÉTODO LOGIN DEBE CERRAR AQUÍ
+    }
+
+    async register(createUsuarioDto: any) {
+        // Crear usuario a través de usuariosService
+        const usuarioCreado = await this.usuariosService.crearUsuario(createUsuarioDto);
+        // Obtener usuario con su relación de rol completa
+        const usuario = await this.usuariosService.buscarPorEmail(usuarioCreado.email);
+        
+        if (!usuario) {
+            throw new UnauthorizedException('Error al crear el usuario');
+        }
+
+        const payload = { sub: usuario.id, email: usuario.email, role: usuario.role?.nombre };
+
+        return {
+            access_token: this.jwtService.sign(payload),
+            usuario: {
+                id: usuario.id,
+                nombre_completo: usuario.nombre_completo,
+                email: usuario.email,
+                telefono: usuario.telefono,
+                role: usuario.role,
+            }
+        };
+    }
+
+    async getProfile(userId: number) {
+        const usuario = await this.usuariosService.buscarPorId(userId);
+        if (!usuario) {
+            throw new UnauthorizedException('Usuario no encontrado');
+        }
+        return {
+            id: usuario.id,
+            nombre_completo: usuario.nombre_completo,
+            email: usuario.email,
+            telefono: usuario.telefono,
+            role: usuario.role,
+        };
+    }
 }
 
 

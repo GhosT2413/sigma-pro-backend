@@ -51,6 +51,15 @@ export class Vehiculo {
     @Column({ type: 'enum', enum: EstadoVehiculo, default: EstadoVehiculo.ACTIVO })
     estado: EstadoVehiculo;
 
+    @Column({ type: 'date', nullable: true })
+    vencimiento_revision_tecnica: Date;
+
+    @Column({ type: 'date', nullable: true })
+    vencimiento_soap: Date;
+
+    @Column({ type: 'date', nullable: true })
+    vencimiento_permiso_circulacion: Date;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 

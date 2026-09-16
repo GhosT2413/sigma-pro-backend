@@ -54,6 +54,14 @@ export class UsuariosService {
         });
     }
 
+    // Buscar usuario por ID (incluyendo la relación de su rol)
+    async buscarPorId(id: number): Promise<Usuario | null> {
+        return await this.usuariosRepository.findOne({
+            where: { id },
+            relations: { role: true },
+        });
+    }
+
     // NUEVA FUNCIÓN: Filtrar usuarios por su ID de Rol (RF-16: Mi Equipo)
     async obtenerPorRol(roleId: number): Promise<Usuario[]> {
         return await this.usuariosRepository.find({

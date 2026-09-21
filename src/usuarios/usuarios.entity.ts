@@ -13,7 +13,7 @@ export class Usuario {
     email: string;
 
     @Column({ type: 'varchar', length: 255 })
-    password_hash: string; // Aquí guardaremos la contraseña encriptada con Bcrypt más adelante
+    password_hash: string;
 
     @Column({ type: 'varchar', length: 30, nullable: true })
     telefono: string;
@@ -21,14 +21,39 @@ export class Usuario {
     @Column({ type: 'boolean', default: true })
     activo: boolean;
 
+    @Column({ type: 'boolean', default: false })
+    hasAcceptedTerms: boolean;
+
+    // ── Mecánico Independiente: documentación ──
+    @Column({ type: 'text', nullable: true })
+    cedula_frente_url: string;
+
+    @Column({ type: 'text', nullable: true })
+    cedula_reverso_url: string;
+
+    @Column({ type: 'text', nullable: true })
+    certificado_antecedentes_url: string;
+
+    // ── Taller Mecánico: documentación ──
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    rut_empresa: string;
+
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    patente_comercial: string;
+
+    @Column({ type: 'text', nullable: true })
+    comprobante_domicilio_url: string;
+
+    @Column({ type: 'varchar', length: 200, nullable: true })
+    representante_legal: string;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
     @UpdateDateColumn({ type: 'timestamp' })
     updated_at: Date;
 
-    // @ManyToOne significa "Muchos usuarios pueden tener Un mismo rol"
     @ManyToOne(() => Role)
-    @JoinColumn({ name: 'role_id' }) // Le decimos que la columna en MySQL se llama 'role_id'
+    @JoinColumn({ name: 'role_id' })
     role: Role;
 }

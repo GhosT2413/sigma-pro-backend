@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DeepPartial, Repository } from 'typeorm';
 import { Usuario } from './usuarios.entity';
 import { CreateUsuarioDto } from './create-usuario.dto';
 import * as bcrypt from 'bcrypt';
@@ -18,8 +18,43 @@ export class UsuariosService {
         return await this.usuariosRepository.find({ relations: { role: true } });
     }
 
-    // NUEVA FUNCIÓN: Crear Usuario
     async crearUsuario(createUsuarioDto: CreateUsuarioDto): Promise<Usuario> {
+        // 0. Validar Términos y Condiciones (obligatorio para todos los roles)
+        if (!createUsuarioDto.hasAcceptedTerms) {
+            throw new BadRequestException('Debes aceptar los Términos y Condiciones.');
+        }
+
+        // 0b. Validación estricta de documentación según rol
+        const roleId = createUsuarioDto.role_id;
+
+        if (roleId === 2) {
+            // MECANICO_INDEPENDIENTE: cédula frente + reverso y certificado de antecedentes
+            if (
+                !createUsuarioDto.cedula_frente_url ||
+                !createUsuarioDto.cedula_reverso_url ||
+                !createUsuarioDto.certificado_antecedentes_url
+            ) {
+                throw new BadRequestException(
+                    'Mecánico Independiente requiere: Cédula de Identidad (frente y reverso) y Certificado de Antecedentes.',
+                );
+            }
+        } else if (roleId === 3) {
+            // TALLER: RUT, patente, comprobante de domicilio y representante legal
+            if (
+                !createUsuarioDto.rut_empresa ||
+                !createUsuarioDto.patente_comercial ||
+                !createUsuarioDto.comprobante_domicilio_url ||
+                !createUsuarioDto.representante_legal
+            ) {
+                throw new BadRequestException(
+                    'Taller Mecánico requiere: RUT, Patente Comercial, Comprobante de Domicilio y Representante Legal.',
+                );
+            }
+        } else if (roleId !== 1) {
+            // Solo se permiten roles 1 (CLIENTE), 2 y 3 para registro público
+            throw new BadRequestException('Rol no válido para registro.');
+        }
+
         // 1. Verificar si el email ya existe en la base de datos
         const usuarioExistente = await this.usuariosRepository.findOne({
             where: { email: createUsuarioDto.email }
@@ -39,8 +74,18 @@ export class UsuariosService {
             email: createUsuarioDto.email,
             password_hash: passwordEncriptada,
             telefono: createUsuarioDto.telefono,
-            role: { id: createUsuarioDto.role_id } // Relacionamos el usuario con el ID del rol enviado
-        });
+            hasAcceptedTerms: true,
+            role: { id: roleId },
+            // Mecánico Independiente
+            cedula_frente_url: createUsuarioDto.cedula_frente_url ?? null,
+            cedula_reverso_url: createUsuarioDto.cedula_reverso_url ?? null,
+            certificado_antecedentes_url: createUsuarioDto.certificado_antecedentes_url ?? null,
+            // Taller
+            rut_empresa: createUsuarioDto.rut_empresa ?? null,
+            patente_comercial: createUsuarioDto.patente_comercial ?? null,
+            comprobante_domicilio_url: createUsuarioDto.comprobante_domicilio_url ?? null,
+            representante_legal: createUsuarioDto.representante_legal ?? null,
+        } as DeepPartial<Usuario>);
 
         // 4. Guardar en la base de datos MySQL
         return await this.usuariosRepository.save(nuevoUsuario);

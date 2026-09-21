@@ -16,9 +16,23 @@ export class RolesService {
     const roles = [
       { id: 1, nombre: 'CLIENTE', descripcion: 'Cliente propietario de vehiculos' },
       { id: 2, nombre: 'MECANICO_INDEPENDIENTE', descripcion: 'Mecanico independiente' },
-      { id: 3, nombre: 'ENCARGADO_TALLER', descripcion: 'Encargado de taller' },
-      { id: 4, nombre: 'ADMIN', descripcion: 'Administrador del sistema' },
+      { id: 3, nombre: 'TALLER', descripcion: 'Encargado de taller' },
+      { id: 4, nombre: 'ADMINISTRADOR', descripcion: 'Administrador del sistema' },
     ];
+
+    // Renombrar roles legacy para que coincidan con el tipo Rol del frontend
+    const legacyNames: Record<string, string> = {
+      'ENCARGADO_TALLER': 'TALLER',
+      'ADMIN': 'ADMINISTRADOR',
+    };
+    for (const [oldName, newName] of Object.entries(legacyNames)) {
+      const legacy = await this.rolesRepository.findOne({ where: { nombre: oldName } });
+      if (legacy) {
+        legacy.nombre = newName;
+        await this.rolesRepository.save(legacy);
+        this.logger.log(`Rol renombrado: ${oldName} → ${newName}`);
+      }
+    }
 
     for (const role of roles) {
       const existe = await this.rolesRepository.findOne({ where: { nombre: role.nombre } });

@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsString, IsEmail, IsOptional, IsInt, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, IsEmail, IsOptional, IsInt, IsBoolean, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateUsuarioDto {
     @IsNotEmpty({ message: 'El nombre completo es obligatorio' })
@@ -19,6 +20,42 @@ export class CreateUsuarioDto {
     readonly telefono?: string;
 
     @IsNotEmpty({ message: 'El rol es obligatorio' })
+    @Type(() => Number)
     @IsInt({ message: 'El rol debe ser un identificador numérico válido' })
     readonly role_id: number;
+
+    // ── Términos y Condiciones ──
+    @IsNotEmpty({ message: 'Debes aceptar los Términos y Condiciones' })
+    @IsBoolean({ message: 'El campo hasAcceptedTerms debe ser true o false' })
+    readonly hasAcceptedTerms: boolean;
+
+    // ── Mecánico Independiente (role_id = 2) ──
+    @IsOptional()
+    @IsString()
+    readonly cedula_frente_url?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly cedula_reverso_url?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly certificado_antecedentes_url?: string;
+
+    // ── Taller Mecánico (role_id = 3) ──
+    @IsOptional()
+    @IsString()
+    readonly rut_empresa?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly patente_comercial?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly comprobante_domicilio_url?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly representante_legal?: string;
 }

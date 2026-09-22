@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsEmail, Validate } from 'class-validator';
+import { IsRutChilenoConstraint } from '../validators/rut.validator';
 
 export class CreateClienteDto {
   @IsNotEmpty({ message: 'El nombre completo es obligatorio' })
@@ -7,6 +8,7 @@ export class CreateClienteDto {
 
   @IsOptional()
   @IsString()
+  @Validate(IsRutChilenoConstraint)
   readonly rut?: string;
 
   @IsOptional()

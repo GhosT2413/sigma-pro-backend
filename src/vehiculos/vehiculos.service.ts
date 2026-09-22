@@ -4,12 +4,16 @@ import { Repository } from 'typeorm';
 import { Vehiculo } from './vehiculo.entity';
 import { CreateVehiculoDto } from './create-vehiculo.dto';
 import { UpdateKilometrajeDto } from './dto/update-kilometraje.dto';
+import { formatearPatente } from './validators/patente.validator';
+import { Cliente } from '../clientes/cliente.entity';
 
 @Injectable()
 export class VehiculosService {
     constructor(
         @InjectRepository(Vehiculo)
         private vehiculosRepository: Repository<Vehiculo>,
+        @InjectRepository(Cliente)
+        private clientesRepository: Repository<Cliente>,
     ) { }
 
     // Obtener todos los vehículos
@@ -18,24 +22,42 @@ export class VehiculosService {
     }
 
     // Crear un nuevo vehículo
-    async crearVehiculo(createVehiculoDto: CreateVehiculoDto): Promise<Vehiculo> {
-        // 1. Validar que la patente sea única (Regla de negocio RF-03)
+    async crearVehiculo(createVehiculoDto: CreateVehiculoDto): Promise<{ mensaje: string; vehiculo: Vehiculo }> {
+        // Formatear patente a mayúsculas automáticamente
+        const patenteFormateada = formatearPatente(createVehiculoDto.patente);
+
+        // 1. Validar que el cliente existe
+        const clienteExiste = await this.clientesRepository.findOne({
+            where: { id: createVehiculoDto.cliente_id }
+        });
+
+        if (!clienteExiste) {
+            throw new BadRequestException('El cliente especificado no existe.');
+        }
+
+        // 2. Validar que la patente sea única (Regla de negocio RF-03)
         const vehiculoExistente = await this.vehiculosRepository.findOne({
-            where: { patente: createVehiculoDto.patente }
+            where: { patente: patenteFormateada }
         });
 
         if (vehiculoExistente) {
-            throw new BadRequestException('Ya existe un vehículo registrado con esta patente.');
+            throw new BadRequestException(`Ya existe un vehículo registrado con la patente: ${patenteFormateada}.`);
         }
 
-        // 2. Crear el objeto con los datos del DTO
+        if (createVehiculoDto.kilometraje_actual !== undefined && createVehiculoDto.kilometraje_actual < 0) {
+            throw new BadRequestException('El kilometraje no puede ser un valor negativo.');
+        }
+
+        // 3. Crear el objeto con los datos del DTO
         const nuevoVehiculo = this.vehiculosRepository.create({
-            ...createVehiculoDto,  // Copia los datos básicos (patente, marca, modelo, etc.)
-            cliente: { id: createVehiculoDto.cliente_id }  // <-- Vinculamos la llave foránea
+            ...createVehiculoDto,
+            patente: patenteFormateada,
+            cliente: { id: createVehiculoDto.cliente_id }
         });
 
-        // 3. Guardar en MySQL
-        return await this.vehiculosRepository.save(nuevoVehiculo);
+        // 4. Guardar en MySQL
+        const vehiculoGuardado = await this.vehiculosRepository.save(nuevoVehiculo);
+        return { mensaje: 'El vehículo fue creado exitosamente.', vehiculo: vehiculoGuardado };
     }
 
     async actualizarKilometraje(id: number, updateDto: UpdateKilometrajeDto): Promise<Vehiculo> {

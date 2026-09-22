@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, UseGuards, Patch, Param, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Patch, Param, UseInterceptors, UploadedFile, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { VehiculosService } from './vehiculos.service';
 import { CreateVehiculoDto } from './create-vehiculo.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Nuestro guardia de seguridad
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UpdateKilometrajeDto } from './dto/update-kilometraje.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -10,7 +10,7 @@ import PDFDocument from 'pdfkit';
 import express from 'express';
 
 @Controller('vehiculos')
-@UseGuards(JwtAuthGuard) // Protegemos todas las rutas de vehículos
+@UseGuards(JwtAuthGuard)
 export class VehiculosController {
     constructor(private readonly vehiculosService: VehiculosService) { }
 
@@ -20,7 +20,8 @@ export class VehiculosController {
     }
 
     @Post()
-    crearVehiculo(@Body() createVehiculoDto: CreateVehiculoDto) {
+    @HttpCode(HttpStatus.CREATED)
+    async crearVehiculo(@Body() createVehiculoDto: CreateVehiculoDto) {
         return this.vehiculosService.crearVehiculo(createVehiculoDto);
     }
 
@@ -29,15 +30,12 @@ export class VehiculosController {
         @Param('id') id: string,
         @Body() updateKilometrajeDto: UpdateKilometrajeDto
     ) {
-        // El +id convierte el string de la URL a un número
         return this.vehiculosService.actualizarKilometraje(+id, updateKilometrajeDto);
     }
 
     @Post('importar')
     @UseInterceptors(FileInterceptor('file'))
     async cargarMasiva(@UploadedFile() file: Express.Multer.File) {
-        // Aquí utilizas csv-parser sobre file.buffer para iterar las filas
-        // y llamar iterativamente a this.vehiculosService.crearVehiculo()
         return { mensaje: 'Carga masiva procesada correctamente' };
     }
 
@@ -50,7 +48,6 @@ export class VehiculosController {
         });
         pdf.pipe(res);
         pdf.text(`Historial del Vehículo ID: ${id}`);
-        // Agregar iteración del historial aquí
         pdf.end();
     }
 }

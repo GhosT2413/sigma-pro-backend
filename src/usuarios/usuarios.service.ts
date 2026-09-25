@@ -1,21 +1,24 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, Repository } from 'typeorm';
 import { Usuario } from './usuarios.entity';
 import { CreateUsuarioDto } from './create-usuario.dto';
+import { UpdateUsuarioDto } from './update-usuario.dto';
 import * as bcrypt from 'bcrypt';
+import { TalleresService } from '../talleres/talleres.service';
 
 @Injectable()
 export class UsuariosService {
     constructor(
         @InjectRepository(Usuario)
         private usuariosRepository: Repository<Usuario>,
+        private readonly talleresService: TalleresService,
     ) { }
 
     // Función para obtener todos los usuarios
     async obtenerTodos(): Promise<Usuario[]> {
         // Al poner relations: { role: true }, TypeORM hace el "JOIN" con la entidad Role
-        return await this.usuariosRepository.find({ relations: { role: true } });
+        return await this.usuariosRepository.find({ relations: { role: true, taller: true } });
     }
 
     async crearUsuario(createUsuarioDto: CreateUsuarioDto): Promise<Usuario> {
@@ -50,8 +53,18 @@ export class UsuariosService {
                     'Taller Mecánico requiere: RUT, Patente Comercial, Comprobante de Domicilio y Representante Legal.',
                 );
             }
+        } else if (roleId === 5 || roleId === 6) {
+            // MECANICO o RECEPCIONISTA: requieren taller_id
+            if (!createUsuarioDto.taller_id) {
+                throw new BadRequestException('Mecánico y Recepcionista requieren estar asociados a un taller (taller_id).');
+            }
+            // Verificar que el taller existe
+            const taller = await this.talleresService.buscarPorId(createUsuarioDto.taller_id);
+            if (!taller) {
+                throw new BadRequestException('El taller especificado no existe.');
+            }
         } else if (roleId !== 1) {
-            // Solo se permiten roles 1 (CLIENTE), 2 y 3 para registro público
+            // Solo se permiten roles 1 (CLIENTE), 2, 3, 5, 6 para registro público
             throw new BadRequestException('Rol no válido para registro.');
         }
 
@@ -85,6 +98,8 @@ export class UsuariosService {
             patente_comercial: createUsuarioDto.patente_comercial ?? null,
             comprobante_domicilio_url: createUsuarioDto.comprobante_domicilio_url ?? null,
             representante_legal: createUsuarioDto.representante_legal ?? null,
+            // Asociación a taller
+            taller_id: createUsuarioDto.taller_id ?? null,
         } as DeepPartial<Usuario>);
 
         // 4. Guardar en la base de datos MySQL
@@ -95,7 +110,7 @@ export class UsuariosService {
     async buscarPorEmail(email: string): Promise<Usuario | null> {
         return await this.usuariosRepository.findOne({
             where: { email },
-            relations: { role: true },
+            relations: { role: true, taller: true },
         });
     }
 
@@ -103,7 +118,7 @@ export class UsuariosService {
     async buscarPorId(id: number): Promise<Usuario | null> {
         return await this.usuariosRepository.findOne({
             where: { id },
-            relations: { role: true },
+            relations: { role: true, taller: true },
         });
     }
 
@@ -111,7 +126,60 @@ export class UsuariosService {
     async obtenerPorRol(roleId: number): Promise<Usuario[]> {
         return await this.usuariosRepository.find({
             where: { role: { id: roleId } },
-            relations: { role: true }, // Traemos la info del rol para que el frontend la pueda mostrar
+            relations: { role: true, taller: true }, // Traemos la info del rol para que el frontend la pueda mostrar
         });
+    }
+
+    // NUEVA FUNCIÓN: Obtener equipo del taller (usuarios con rol MECANICO o RECEPCIONISTA asociados al taller)
+    async obtenerEquipoTaller(tallerId: number): Promise<Usuario[]> {
+        return await this.usuariosRepository.find({
+            where: { 
+                taller_id: tallerId,
+                role: { id: 5 } // MECANICO
+            },
+            relations: { role: true, taller: true },
+        });
+    }
+
+    async obtenerEquipoTallerCompleto(tallerId: number): Promise<Usuario[]> {
+        return await this.usuariosRepository.find({
+            where: { 
+                taller_id: tallerId,
+            },
+            relations: { role: true, taller: true },
+        });
+    }
+
+async actualizar(id: number, data: UpdateUsuarioDto): Promise<Usuario> {
+        const usuario = await this.buscarPorId(id);
+        if (!usuario) {
+            throw new NotFoundException('Usuario no encontrado');
+        }
+
+        // Si se actualiza taller_id, verificar que el taller existe
+        if (data.taller_id) {
+            const taller = await this.talleresService.buscarPorId(data.taller_id);
+            if (!taller) {
+                throw new BadRequestException('El taller especificado no existe.');
+            }
+        }
+
+        // Si se actualiza la contraseña, encriptarla
+        if (data.password_hash) {
+            const saltOrRounds = 12;
+            data.password_hash = await bcrypt.hash(data.password_hash, saltOrRounds);
+        }
+
+        // Si se actualiza role_id, asignarlo como relación
+        if (data.role_id) {
+            (data as any).role = { id: data.role_id };
+        }
+
+        Object.assign(usuario, data);
+        return await this.usuariosRepository.save(usuario);
+    }
+
+    async eliminar(id: number): Promise<void> {
+        await this.usuariosRepository.delete(id);
     }
 }

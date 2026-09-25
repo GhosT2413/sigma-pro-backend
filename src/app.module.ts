@@ -14,6 +14,7 @@ import { FichasModule } from './fichas/fichas.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { ServiciosModule } from './servicios/servicios.module';
+import { TalleresModule } from './talleres/talleres.module';
 import { RolesService } from './roles/roles.service';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -41,6 +42,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     DashboardModule,
     ClientesModule,
     ServiciosModule,
+    TalleresModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,11 +1,10 @@
-import { Controller, Get, Post, Body, UseGuards, Patch, Param, UseInterceptors, UploadedFile, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Patch, Param, Delete, UseInterceptors, UploadedFile, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { VehiculosService } from './vehiculos.service';
 import { CreateVehiculoDto } from './create-vehiculo.dto';
+import { UpdateVehiculoDto } from './dto/update-vehiculo.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UpdateKilometrajeDto } from './dto/update-kilometraje.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import PDFDocument from 'pdfkit';
 import express from 'express';
 
@@ -19,10 +18,25 @@ export class VehiculosController {
         return this.vehiculosService.obtenerTodos();
     }
 
+    @Get(':id')
+    obtenerVehiculo(@Param('id') id: string) {
+        return this.vehiculosService.obtenerPorId(+id);
+    }
+
     @Post()
     @HttpCode(HttpStatus.CREATED)
     async crearVehiculo(@Body() createVehiculoDto: CreateVehiculoDto) {
         return this.vehiculosService.crearVehiculo(createVehiculoDto);
+    }
+
+    @Patch(':id')
+    async actualizarVehiculo(@Param('id') id: string, @Body() dto: UpdateVehiculoDto) {
+        return this.vehiculosService.actualizar(+id, dto);
+    }
+
+    @Delete(':id')
+    eliminarVehiculo(@Param('id') id: string) {
+        return this.vehiculosService.eliminar(+id);
     }
 
     @Patch(':id/kilometraje')
@@ -35,7 +49,7 @@ export class VehiculosController {
 
     @Post('importar')
     @UseInterceptors(FileInterceptor('file'))
-    async cargarMasiva(@UploadedFile() file: Express.Multer.File) {
+    async cargarMasiva(@UploadedFile() _file?: unknown) {
         return { mensaje: 'Carga masiva procesada correctamente' };
     }
 

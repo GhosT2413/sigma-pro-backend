@@ -36,14 +36,8 @@ export class FichaMantencion {
   @Column({ type: 'int', unsigned: true, nullable: true })
   kilometraje_salida: number;
 
-  @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
-  horas_trabajadas: number;
-
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-  valor_hora: number;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-  costo_mano_obra: number;
+  valor_arreglo: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   costo_repuestos: number;

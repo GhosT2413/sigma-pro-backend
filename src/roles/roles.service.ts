@@ -18,12 +18,16 @@ export class RolesService {
       { id: 2, nombre: 'MECANICO_INDEPENDIENTE', descripcion: 'Mecanico independiente' },
       { id: 3, nombre: 'TALLER', descripcion: 'Encargado de taller' },
       { id: 4, nombre: 'ADMINISTRADOR', descripcion: 'Administrador del sistema' },
+      { id: 5, nombre: 'MECANICO', descripcion: 'Mecanico de taller' },
+      { id: 6, nombre: 'RECEPCIONISTA', descripcion: 'Recepcionista de taller' },
     ];
 
     // Renombrar roles legacy para que coincidan con el tipo Rol del frontend
     const legacyNames: Record<string, string> = {
       'ENCARGADO_TALLER': 'TALLER',
       'ADMIN': 'ADMINISTRADOR',
+      'MECANICO': 'MECANICO',
+      'RECEPCIONISTA': 'RECEPCIONISTA',
     };
     for (const [oldName, newName] of Object.entries(legacyNames)) {
       const legacy = await this.rolesRepository.findOne({ where: { nombre: oldName } });

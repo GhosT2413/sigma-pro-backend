@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
+import { Vehiculo } from '../vehiculos/vehiculo.entity';
 
 @Entity('clientes')
 export class Cliente {
@@ -25,4 +26,7 @@ export class Cliente {
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
+
+  @OneToMany(() => Vehiculo, vehiculo => vehiculo.cliente, { cascade: true })
+  vehiculos: Vehiculo[];
 }

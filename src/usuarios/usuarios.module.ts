@@ -4,14 +4,16 @@ import { UsuariosService } from './usuarios.service';
 import { Usuario } from './usuarios.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { TalleresModule } from '../talleres/talleres.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario]), // <-- Registramos la entidad Usuario
+    TypeOrmModule.forFeature([Usuario]),
     forwardRef(() => AuthModule),
+    TalleresModule,
   ],
   controllers: [UsuariosController],
-  providers: [UsuariosService], // No incluir JwtAuthGuard aquí
-  exports: [UsuariosService], // <-- Exportamos el servicio para que AuthModule pueda usarlo
+  providers: [UsuariosService],
+  exports: [UsuariosService],
 })
 export class UsuariosModule { }

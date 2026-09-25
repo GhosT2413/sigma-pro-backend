@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vehiculo } from './vehiculo.entity';
 import { CreateVehiculoDto } from './create-vehiculo.dto';
+import { UpdateVehiculoDto } from './dto/update-vehiculo.dto';
 import { UpdateKilometrajeDto } from './dto/update-kilometraje.dto';
 import { formatearPatente } from './validators/patente.validator';
 import { Cliente } from '../clientes/cliente.entity';
@@ -16,9 +17,20 @@ export class VehiculosService {
         private clientesRepository: Repository<Cliente>,
     ) { }
 
-    // Obtener todos los vehículos
+    // Obtener todos los vehículos (con cliente anidado, como espera el frontend)
     async obtenerTodos(): Promise<Vehiculo[]> {
-        return await this.vehiculosRepository.find();
+        return await this.vehiculosRepository.find({ relations: { cliente: true } });
+    }
+
+    async obtenerPorId(id: number): Promise<Vehiculo> {
+        const vehiculo = await this.vehiculosRepository.findOne({
+            where: { id },
+            relations: { cliente: true },
+        });
+        if (!vehiculo) {
+            throw new NotFoundException('Vehículo no encontrado.');
+        }
+        return vehiculo;
     }
 
     // Crear un nuevo vehículo
@@ -58,6 +70,40 @@ export class VehiculosService {
         // 4. Guardar en MySQL
         const vehiculoGuardado = await this.vehiculosRepository.save(nuevoVehiculo);
         return { mensaje: 'El vehículo fue creado exitosamente.', vehiculo: vehiculoGuardado };
+    }
+
+    async actualizar(id: number, dto: UpdateVehiculoDto): Promise<{ mensaje: string; vehiculo: Vehiculo }> {
+        const vehiculo = await this.obtenerPorId(id);
+
+        if (dto.cliente_id !== undefined) {
+            const clienteExiste = await this.clientesRepository.findOne({ where: { id: dto.cliente_id } });
+            if (!clienteExiste) {
+                throw new BadRequestException('El cliente especificado no existe.');
+            }
+        }
+
+        let patenteFormateada: string | undefined;
+        if (dto.patente !== undefined) {
+            patenteFormateada = formatearPatente(dto.patente);
+            const existente = await this.vehiculosRepository.findOne({ where: { patente: patenteFormateada } });
+            if (existente && existente.id !== id) {
+                throw new BadRequestException(`Ya existe un vehículo registrado con la patente: ${patenteFormateada}.`);
+            }
+        }
+
+        this.vehiculosRepository.merge(vehiculo, {
+            ...dto,
+            ...(patenteFormateada ? { patente: patenteFormateada } : {}),
+            ...(dto.cliente_id !== undefined ? { cliente: { id: dto.cliente_id } } : {}),
+        });
+        const vehiculoActualizado = await this.vehiculosRepository.save(vehiculo);
+        return { mensaje: 'El vehículo fue actualizado exitosamente.', vehiculo: vehiculoActualizado };
+    }
+
+    async eliminar(id: number): Promise<{ mensaje: string }> {
+        const vehiculo = await this.obtenerPorId(id);
+        await this.vehiculosRepository.remove(vehiculo);
+        return { mensaje: `Vehículo con ID ${id} eliminado correctamente.` };
     }
 
     async actualizarKilometraje(id: number, updateDto: UpdateKilometrajeDto): Promise<Vehiculo> {

@@ -1,5 +1,6 @@
-import { IsNotEmpty, IsString, IsEmail, IsOptional, IsInt, IsBoolean, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, IsEmail, IsOptional, IsInt, IsBoolean, MinLength, IsDateString, Validate } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsRutChilenoConstraint } from '../clientes/validators/rut.validator';
 
 export class CreateUsuarioDto {
     @IsNotEmpty({ message: 'El nombre completo es obligatorio' })
@@ -28,6 +29,22 @@ export class CreateUsuarioDto {
     @IsNotEmpty({ message: 'Debes aceptar los Términos y Condiciones' })
     @IsBoolean({ message: 'El campo hasAcceptedTerms debe ser true o false' })
     readonly hasAcceptedTerms: boolean;
+
+    // ── Cliente (role_id = 1) ──
+    @IsOptional()
+    @IsString()
+    @Validate(IsRutChilenoConstraint)
+    readonly rut?: string;
+
+    @IsOptional()
+    @IsDateString({}, { message: 'La fecha de nacimiento debe ser una fecha válida (YYYY-MM-DD)' })
+    readonly fecha_nacimiento?: string;
+
+    // ── Asociación a Taller (para MECANICO=5, RECEPCIONISTA=6) ──
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt({ message: 'El taller_id debe ser un número válido' })
+    readonly taller_id?: number;
 
     // ── Mecánico Independiente (role_id = 2) ──
     @IsOptional()

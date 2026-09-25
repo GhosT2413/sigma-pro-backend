@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Role } from '../roles/role.entity';
+import { Taller } from '../talleres/taller.entity';
 
 @Entity('usuarios') // Nombre de tu tabla en MySQL
 export class Usuario {
@@ -24,6 +25,12 @@ export class Usuario {
     @Column({ type: 'boolean', default: false })
     hasAcceptedTerms: boolean;
 
+    @Column({ type: 'date', nullable: true })
+    fecha_nacimiento: Date;
+
+    @Column({ type: 'text', nullable: true })
+    foto_perfil_url: string;
+
     // ── Mecánico Independiente: documentación ──
     @Column({ type: 'text', nullable: true })
     cedula_frente_url: string;
@@ -46,6 +53,14 @@ export class Usuario {
 
     @Column({ type: 'varchar', length: 200, nullable: true })
     representante_legal: string;
+
+    // ── Asociación a Taller (para MECANICO, RECEPCIONISTA) ──
+    @Column({ type: 'int', unsigned: true, nullable: true })
+    taller_id: number;
+
+    @ManyToOne(() => Taller, (taller) => taller.usuarios, { nullable: true })
+    @JoinColumn({ name: 'taller_id' })
+    taller: Taller;
 
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;

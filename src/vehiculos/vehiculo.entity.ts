@@ -20,7 +20,7 @@ export class Vehiculo {
     @PrimaryGeneratedColumn({ type: 'int', unsigned: true })
     id: number;
 
-    @ManyToOne(() => Cliente)
+    @ManyToOne(() => Cliente, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'cliente_id' })
     cliente: Cliente;
 

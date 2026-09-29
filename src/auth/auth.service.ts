@@ -35,6 +35,9 @@ export class AuthService {
                 nombre_completo: usuario.nombre_completo,
                 email: usuario.email,
                 telefono: usuario.telefono,
+                fecha_nacimiento: usuario.fecha_nacimiento,
+                foto_perfil_url: usuario.foto_perfil_url,
+                rut: usuario.rut,
                 role: usuario.role,
             }
         };
@@ -59,6 +62,9 @@ export class AuthService {
                 nombre_completo: usuario.nombre_completo,
                 email: usuario.email,
                 telefono: usuario.telefono,
+                fecha_nacimiento: usuario.fecha_nacimiento,
+                foto_perfil_url: usuario.foto_perfil_url,
+                rut: usuario.rut,
                 role: usuario.role,
             }
         };
@@ -74,6 +80,9 @@ export class AuthService {
             nombre_completo: usuario.nombre_completo,
             email: usuario.email,
             telefono: usuario.telefono,
+            fecha_nacimiento: usuario.fecha_nacimiento,
+            foto_perfil_url: usuario.foto_perfil_url,
+            rut: usuario.rut,
             role: usuario.role,
         };
     }

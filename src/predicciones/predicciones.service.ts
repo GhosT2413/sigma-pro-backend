@@ -1,23 +1,20 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { GoogleGenAI, Type } from '@google/genai';
 import { Repository } from 'typeorm';
 import { PrediccionIa } from './prediccion-ia.entity';
 import { AlertasService } from '../alertas/alertas.service';
 
 @Injectable()
 export class PrediccionesService {
-    private ai: GoogleGenAI;
+    private readonly apiUrl = 'https://api.mammouth.ai/v1/chat/completions';
+    private readonly apiKey = 'sk-ABEoBVMX9TKmKRX1NzpbhQ';
+    private readonly model = 'gpt-4.1';
 
     constructor(
         @InjectRepository(PrediccionIa)
         private prediccionesRepository: Repository<PrediccionIa>,
         private alertasService: AlertasService,
-    ) {
-        this.ai = new GoogleGenAI({
-            apiKey: process.env.GEMINI_API_KEY, // Nest leerá esto desde .env
-        });
-    }
+    ) {}
 
     async predecirMantencion(
         kilometrajeActual: number,
@@ -28,7 +25,7 @@ export class PrediccionesService {
     ): Promise<PrediccionIa> {
         try {
             const prompt = `
-                Eres un asistente experto en mantenimiento preventivo automotriz.
+Eres un asistente experto en mantenimiento preventivo automotriz.
 
 Datos del vehículo:
 - Marca: ${marca}
@@ -57,42 +54,36 @@ Estructura obligatoria:
   "kilometraje_recomendado": 0,
   "probabilidad_falla": null
 }
-            `;
+            `.trim();
 
-            const response = await this.ai.models.generateContent({
-                model: 'gemini-3.6-flash', // Esta es la versión actual de Gemini que soporta JSON Schema
-                contents: prompt,
-                config: {
-                    temperature: 0.2,
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            componente: {
-                                type: Type.STRING,
-                                description: 'Nombre del componente (ej. Aceite, Frenos)',
-                            },
-                            diagnostico: {
-                                type: Type.STRING,
-                                description: 'Breve justificación técnica',
-                            },
-                            kilometraje_recomendado: {
-                                type: Type.INTEGER,
-                                description: 'Kilometraje en el que se debe realizar el mantenimiento',
-                            },
-                            probabilidad_falla: {
-                                type: Type.NUMBER,
-                                description: 'Probabilidad de falla estimada entre 0.0 y 1.0',
-                            },
-                        },
-                        required: ['componente', 'diagnostico', 'kilometraje_recomendado', 'probabilidad_falla'],
-                    },
+            const response = await fetch(this.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Content-Type': 'application/json',
                 },
+                body: JSON.stringify({
+                    model: this.model,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: prompt,
+                        },
+                    ],
+                    temperature: 0.2,
+                }),
             });
 
-            const respuestaTexto = response.text;
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new InternalServerErrorException(`Error en API mammouth.ai: ${response.status} - ${errorText}`);
+            }
+
+            const responseData = await response.json();
+            const respuestaTexto = responseData.choices?.[0]?.message?.content;
+
             if (!respuestaTexto) {
-                throw new InternalServerErrorException('No se recibió respuesta válida de Gemini.');
+                throw new InternalServerErrorException('No se recibió respuesta válida de la API.');
             }
 
             const dataIA = JSON.parse(respuestaTexto);
@@ -121,7 +112,7 @@ Estructura obligatoria:
 
             return prediccionGuardada;
         } catch (error: any) {
-            throw new InternalServerErrorException('Error con Gemini o Base de Datos: ' + (error?.message || error));
+            throw new InternalServerErrorException('Error con API mammouth.ai o Base de Datos: ' + (error?.message || error));
         }
     }
 }

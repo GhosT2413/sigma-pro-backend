@@ -14,6 +14,12 @@ export class UsuariosController {
         return this.usuariosService.obtenerTodos();
     }
 
+    @UseGuards(JwtAuthGuard)
+    @Get(':id')
+    obtenerUsuarioPorId(@Param('id', ParseIntPipe) id: number) {
+        return this.usuariosService.buscarPorId(id);
+    }
+
     // NUEVA RUTA: POST /usuarios
     // @Body() atrapa el JSON que nos envía Angular y lo mete en el DTO
     @Post()

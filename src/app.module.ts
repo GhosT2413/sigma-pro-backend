@@ -27,7 +27,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       host: '127.0.0.1',
       port: 3306,
       username: 'root',
-      password: 'root',
+      password: 'Informatica.26',
       database: 'sigmapro_db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: true,
@@ -48,7 +48,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
   providers: [AppService],
 })
 export class AppModule implements OnModuleInit {
-  constructor(private readonly rolesService: RolesService) {}
+  constructor(private readonly rolesService: RolesService) { }
 
   async onModuleInit() {
     await this.rolesService.seedRoles();

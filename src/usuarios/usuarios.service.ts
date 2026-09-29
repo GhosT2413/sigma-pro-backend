@@ -6,6 +6,7 @@ import { CreateUsuarioDto } from './create-usuario.dto';
 import { UpdateUsuarioDto } from './update-usuario.dto';
 import * as bcrypt from 'bcrypt';
 import { TalleresService } from '../talleres/talleres.service';
+import { formatearRutBackend } from '../clientes/validators/rut.validator';
 
 @Injectable()
 export class UsuariosService {
@@ -89,6 +90,8 @@ export class UsuariosService {
             telefono: createUsuarioDto.telefono,
             hasAcceptedTerms: true,
             role: { id: roleId },
+            rut: createUsuarioDto.rut ? formatearRutBackend(createUsuarioDto.rut) : null,
+            fecha_nacimiento: createUsuarioDto.fecha_nacimiento ? new Date(createUsuarioDto.fecha_nacimiento) : null,
             // Mecánico Independiente
             cedula_frente_url: createUsuarioDto.cedula_frente_url ?? null,
             cedula_reverso_url: createUsuarioDto.cedula_reverso_url ?? null,
@@ -173,6 +176,10 @@ async actualizar(id: number, data: UpdateUsuarioDto): Promise<Usuario> {
         // Si se actualiza role_id, asignarlo como relación
         if (data.role_id) {
             (data as any).role = { id: data.role_id };
+        }
+
+        if (data.rut) {
+            data.rut = formatearRutBackend(data.rut);
         }
 
         Object.assign(usuario, data);

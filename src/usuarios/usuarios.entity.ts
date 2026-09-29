@@ -19,6 +19,9 @@ export class Usuario {
     @Column({ type: 'varchar', length: 30, nullable: true })
     telefono: string;
 
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    rut: string;
+
     @Column({ type: 'boolean', default: true })
     activo: boolean;
 

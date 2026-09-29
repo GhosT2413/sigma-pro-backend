@@ -20,6 +20,10 @@ export class UpdateUsuarioDto {
     readonly telefono?: string;
 
     @IsOptional()
+    @IsString()
+    rut?: string;
+
+    @IsOptional()
     @IsBoolean()
     readonly activo?: boolean;
 

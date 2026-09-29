@@ -30,7 +30,7 @@ export class CreateUsuarioDto {
     @IsBoolean({ message: 'El campo hasAcceptedTerms debe ser true o false' })
     readonly hasAcceptedTerms: boolean;
 
-    // ── Cliente (role_id = 1) ──
+    // ── RUT (Cliente role_id = 1 y Mecánico Independiente role_id = 2) ──
     @IsOptional()
     @IsString()
     @Validate(IsRutChilenoConstraint)

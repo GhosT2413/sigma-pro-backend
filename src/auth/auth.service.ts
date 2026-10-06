@@ -1,13 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { EmailService } from '../messaging/email.service';
 
 @Injectable()
 export class AuthService {
     constructor(
         private usuariosService: UsuariosService,
-        private jwtService: JwtService
+        private jwtService: JwtService,
+        private emailService: EmailService
     ) { }
 
     async login(email: string, password_plana: string) {
@@ -85,6 +87,74 @@ export class AuthService {
             rut: usuario.rut,
             role: usuario.role,
         };
+    }
+
+    async forgotPassword(email: string) {
+        const usuario = await this.usuariosService.buscarPorEmail(email);
+        if (!usuario) {
+            return { message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña' };
+        }
+
+        const resetToken = this.jwtService.sign(
+            { sub: usuario.id, email: usuario.email, type: 'password-reset' },
+            { expiresIn: '1h' }
+        );
+
+        await this.emailService.sendPasswordResetEmail(email, resetToken);
+
+        return { message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña' };
+    }
+
+    async resetPassword(token: string, newPassword: string, confirmPassword: string) {
+        if (newPassword !== confirmPassword) {
+            throw new BadRequestException('Las contraseñas no coinciden');
+        }
+
+        let payload: { sub: number; email: string; type: string };
+        try {
+            payload = this.jwtService.verify(token);
+        } catch (error) {
+            throw new UnauthorizedException('Token inválido o expirado');
+        }
+
+        if (payload.type !== 'password-reset') {
+            throw new UnauthorizedException('Token inválido');
+        }
+
+        const usuario = await this.usuariosService.buscarPorId(payload.sub);
+        if (!usuario || usuario.email !== payload.email) {
+            throw new UnauthorizedException('Token inválido');
+        }
+
+        const saltOrRounds = 12;
+        const passwordHash = await bcrypt.hash(newPassword, saltOrRounds);
+
+        await this.usuariosService.actualizar(payload.sub, { password_hash: passwordHash });
+
+        return { message: 'Contraseña actualizada correctamente' };
+    }
+
+    async changePassword(userId: number, currentPassword: string, newPassword: string, confirmPassword: string) {
+        if (newPassword !== confirmPassword) {
+            throw new BadRequestException('Las contraseñas no coinciden');
+        }
+
+        const usuario = await this.usuariosService.buscarPorId(userId);
+        if (!usuario) {
+            throw new UnauthorizedException('Usuario no encontrado');
+        }
+
+        const passwordValida = await bcrypt.compare(currentPassword, usuario.password_hash);
+        if (!passwordValida) {
+            throw new UnauthorizedException('Contraseña actual incorrecta');
+        }
+
+        const saltOrRounds = 12;
+        const passwordHash = await bcrypt.hash(newPassword, saltOrRounds);
+
+        await this.usuariosService.actualizar(userId, { password_hash: passwordHash });
+
+        return { message: 'Contraseña cambiada correctamente' };
     }
 }
 

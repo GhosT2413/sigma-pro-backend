@@ -61,10 +61,14 @@ export class VehiculosService {
         }
 
         // 3. Crear el objeto con los datos del DTO
+        const { vencimiento_revision_tecnica, vencimiento_soap, vencimiento_permiso_circulacion, ...restoDto } = createVehiculoDto;
         const nuevoVehiculo = this.vehiculosRepository.create({
-            ...createVehiculoDto,
+            ...restoDto,
             patente: patenteFormateada,
-            cliente: { id: createVehiculoDto.cliente_id }
+            cliente: { id: createVehiculoDto.cliente_id },
+            vencimiento_revision_tecnica: this.aFecha(vencimiento_revision_tecnica),
+            vencimiento_soap: this.aFecha(vencimiento_soap),
+            vencimiento_permiso_circulacion: this.aFecha(vencimiento_permiso_circulacion),
         });
 
         // 4. Guardar en MySQL
@@ -91,10 +95,18 @@ export class VehiculosService {
             }
         }
 
+        const { vencimiento_revision_tecnica, vencimiento_soap, vencimiento_permiso_circulacion, ...restoUpdate } = dto;
         this.vehiculosRepository.merge(vehiculo, {
-            ...dto,
+            ...restoUpdate,
             ...(patenteFormateada ? { patente: patenteFormateada } : {}),
             ...(dto.cliente_id !== undefined ? { cliente: { id: dto.cliente_id } } : {}),
+            ...(dto.vencimiento_revision_tecnica !== undefined
+                ? { vencimiento_revision_tecnica: this.aFecha(vencimiento_revision_tecnica) }
+                : {}),
+            ...(dto.vencimiento_soap !== undefined ? { vencimiento_soap: this.aFecha(vencimiento_soap) } : {}),
+            ...(dto.vencimiento_permiso_circulacion !== undefined
+                ? { vencimiento_permiso_circulacion: this.aFecha(vencimiento_permiso_circulacion) }
+                : {}),
         });
         const vehiculoActualizado = await this.vehiculosRepository.save(vehiculo);
         return { mensaje: 'El vehículo fue actualizado exitosamente.', vehiculo: vehiculoActualizado };
@@ -124,5 +136,11 @@ export class VehiculosService {
 
         // Al hacer save(), TypeORM actualizará automáticamente la fecha 'updated_at'
         return await this.vehiculosRepository.save(vehiculo);
+    }
+
+    private aFecha(valor?: string | null): Date | null {
+        if (!valor) return null;
+        const fecha = /^\d{4}-\d{2}-\d{2}$/.test(valor) ? new Date(`${valor}T00:00:00`) : new Date(valor);
+        return Number.isNaN(fecha.getTime()) ? null : fecha;
     }
 }

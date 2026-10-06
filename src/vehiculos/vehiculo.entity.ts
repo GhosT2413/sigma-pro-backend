@@ -52,13 +52,13 @@ export class Vehiculo {
     estado: EstadoVehiculo;
 
     @Column({ type: 'date', nullable: true })
-    vencimiento_revision_tecnica: Date;
+    vencimiento_revision_tecnica: Date | null;
 
     @Column({ type: 'date', nullable: true })
-    vencimiento_soap: Date;
+    vencimiento_soap: Date | null;
 
     @Column({ type: 'date', nullable: true })
-    vencimiento_permiso_circulacion: Date;
+    vencimiento_permiso_circulacion: Date | null;
 
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;

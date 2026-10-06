@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, MoreThan } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import { FichaMantencion, EstadoFicha } from './ficha-mantencion.entity';
 import { CreateFichaDto } from './dto/create-ficha.dto';
 import { UpdateFichaDto } from './dto/update-ficha.dto';
@@ -30,13 +30,20 @@ export class FichasService {
   }
 
   async crearFicha(createFichaDto: CreateFichaDto, user: any): Promise<FichaMantencion> {
+    // Un MECANICO_INDEPENDIENTE que crea la ficha es quien atendió el vehículo:
+    // se fuerza su propio id aunque el cliente envíe otro mecanico_id.
+    const dto: CreateFichaDto =
+      user?.role === 'MECANICO_INDEPENDIENTE' && user?.userId
+        ? { ...createFichaDto, mecanico_id: user.userId }
+        : createFichaDto;
+
     // Prevent duplicate creation: check for identical ficha created in last 5 seconds
     const fiveSecondsAgo = new Date(Date.now() - 5000);
     const existing = await this.fichasRepository.findOne({
       where: {
-        vehiculo_id: createFichaDto.vehiculo_id,
-        kilometraje_ingreso: createFichaDto.kilometraje_ingreso,
-        descripcion: createFichaDto.descripcion || '',
+        vehiculo_id: dto.vehiculo_id,
+        kilometraje_ingreso: dto.kilometraje_ingreso,
+        descripcion: dto.descripcion || '',
         created_at: MoreThan(fiveSecondsAgo),
       },
     });
@@ -46,7 +53,7 @@ export class FichasService {
       return existing;
     }
 
-    const nuevaFicha = this.fichasRepository.create(createFichaDto);
+    const nuevaFicha = this.fichasRepository.create(dto);
     const fichaGuardada = await this.fichasRepository.save(nuevaFicha);
 
     // Si la ficha entra como LISTO, actualizamos el kilometraje del vehículo

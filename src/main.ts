@@ -14,6 +14,12 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
+  // Detrás del balanceador de carga (HAProxy) Express debe confiar en el proxy
+  // para obtener la IP real del cliente (rate-limit y logs por cliente).
+  if (configService.get('TRUST_PROXY', 'false') === 'true') {
+    app.getHttpAdapter().getInstance().set('trust proxy', true);
+  }
+
   // Security headers
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -55,6 +61,7 @@ async function bootstrap() {
       .setVersion('1.0')
       .addBearerAuth()
       .addTag('auth', 'Autenticación y autorización')
+      .addTag('roles', 'Roles del sistema')
       .addTag('usuarios', 'Gestión de usuarios')
       .addTag('vehiculos', 'Gestión de vehículos')
       .addTag('talleres', 'Gestión de talleres')
@@ -64,6 +71,7 @@ async function bootstrap() {
       .addTag('dashboard', 'Estadísticas y reportes')
       .addTag('clientes', 'Gestión de clientes')
       .addTag('predicciones', 'Predicciones IA')
+      .addTag('health', 'Salud y topología de la infraestructura')
       .addTag('queue', 'Gestión de colas')
       .addTag('messaging', 'Mensajería y notificaciones')
       .build();
@@ -79,8 +87,9 @@ async function bootstrap() {
   const port = configService.get('PORT', 3003);
   await app.listen(port);
 
-  console.log(`🚀 SIGMAPRO API running on port ${port}`);
+  console.log(`🚀 SIGMAPRO API [${configService.get('INSTANCE_ID', 'local')}] running on port ${port}`);
   console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
+  console.log(`❤️  Health check: http://localhost:${port}/api/health`);
 }
 
 bootstrap();

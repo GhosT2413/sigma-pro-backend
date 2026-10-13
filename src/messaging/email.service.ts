@@ -12,7 +12,15 @@ export class EmailService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit() {
-    await this.initializeTransporter();
+    try {
+      await this.initializeTransporter();
+    } catch (error) {
+      // Nunca debe impedir el arranque del backend (2 réplicas + LB no pueden
+      // depender de que Ethereal responda): fallback a transporte local JSON.
+      this.logger.error('[EmailService] Inicialización SMTP falló, usando transporte JSON local:', error);
+      this.transporter = createTransport({ jsonTransport: true });
+      this.isTestAccount = false;
+    }
   }
 
   private async initializeTransporter() {

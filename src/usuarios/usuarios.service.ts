@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, Repository } from 'typeorm';
 import { Usuario } from './usuarios.entity';
+import { Role } from '../roles/role.entity';
 import { CreateUsuarioDto } from './create-usuario.dto';
 import { UpdateUsuarioDto } from './update-usuario.dto';
 import * as bcrypt from 'bcrypt';
@@ -22,7 +23,27 @@ export class UsuariosService {
         return await this.usuariosRepository.find({ relations: { role: true, taller: true } });
     }
 
-    async crearUsuario(createUsuarioDto: CreateUsuarioDto): Promise<Usuario> {
+    async crearUsuario(
+        createUsuarioDto: CreateUsuarioDto,
+        contexto?: { rol: string; tallerId: number | null },
+    ): Promise<Usuario> {
+        // Contexto interno (POST /usuarios): quien crea debe estar autorizado y,
+        // si es un TALLER, solo puede crear equipo propio (roles 5/6) forzando
+        // su taller_id. El registro público llama sin contexto (roles 1/2/3).
+        if (contexto) {
+            if (contexto.rol === 'TALLER') {
+                if (![5, 6].includes(Number(createUsuarioDto.role_id))) {
+                    throw new ForbiddenException('Un taller solo puede crear MECANICO o RECEPCIONISTA.');
+                }
+                if (!contexto.tallerId) {
+                    throw new BadRequestException('Tu usuario no tiene un taller asociado.');
+                }
+                createUsuarioDto = { ...createUsuarioDto, taller_id: contexto.tallerId };
+            } else if (contexto.rol !== 'ADMINISTRADOR') {
+                throw new ForbiddenException('No tienes permiso para crear usuarios.');
+            }
+        }
+
         // 0. Validar Términos y Condiciones (obligatorio para todos los roles)
         if (!createUsuarioDto.hasAcceptedTerms) {
             throw new BadRequestException('Debes aceptar los Términos y Condiciones.');
@@ -63,6 +84,11 @@ export class UsuariosService {
             const taller = await this.talleresService.buscarPorId(createUsuarioDto.taller_id);
             if (!taller) {
                 throw new BadRequestException('El taller especificado no existe.');
+            }
+        } else if (roleId === 4) {
+            // ADMINISTRADOR: solo puede crearlo otro administrador (POST /usuarios)
+            if (!contexto || contexto.rol !== 'ADMINISTRADOR') {
+                throw new BadRequestException('Rol no válido para registro.');
             }
         } else if (roleId !== 1) {
             // Solo se permiten roles 1 (CLIENTE), 2, 3, 5, 6 para registro público
@@ -110,7 +136,20 @@ export class UsuariosService {
     }
 
     // Buscar usuario por email (incluyendo la relación de su rol)
-    async buscarPorEmail(email: string): Promise<Usuario | null> {
+    // Con { master: true } fuerza lectura en el primario: necesario justo después
+    // de un INSERT (las réplicas tienen ~50-100ms de atraso y leerían vacío).
+    async buscarPorEmail(
+        email: string,
+        opts?: { master?: boolean },
+    ): Promise<Usuario | null> {
+        if (opts?.master) {
+            return await this.usuariosRepository.manager.transaction(async (em) => {
+                return await em.findOne(Usuario, {
+                    where: { email },
+                    relations: { role: true, taller: true },
+                });
+            });
+        }
         return await this.usuariosRepository.findOne({
             where: { email },
             relations: { role: true, taller: true },
@@ -173,8 +212,14 @@ async actualizar(id: number, data: UpdateUsuarioDto): Promise<Usuario> {
             data.password_hash = await bcrypt.hash(data.password_hash, saltOrRounds);
         }
 
-        // Si se actualiza role_id, asignarlo como relación
-        if (data.role_id) {
+        // Si se actualiza role_id, validar que el rol exista antes de asignarlo
+        if (data.role_id !== undefined) {
+            const rol = await this.usuariosRepository.manager.findOne(Role, {
+                where: { id: data.role_id },
+            });
+            if (!rol) {
+                throw new BadRequestException('El rol especificado no existe.');
+            }
             (data as any).role = { id: data.role_id };
         }
 

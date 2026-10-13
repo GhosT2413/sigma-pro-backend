@@ -27,8 +27,8 @@ export class AuthService {
             throw new UnauthorizedException('Credenciales incorrectas');
         }
 
-        // 3. Generar el payload del JWT
-        const payload = { sub: usuario.id, email: usuario.email, role: usuario.role?.nombre };
+        // 3. Generar el payload del JWT (taller_id para scoping por tenant)
+        const payload = this.firmarPayload(usuario);
 
         return {
             access_token: this.jwtService.sign(payload),
@@ -46,16 +46,25 @@ export class AuthService {
     }
 
     async register(createUsuarioDto: any) {
-        // Crear usuario a través de usuariosService
+        // Registro PÚBLICO: solo roles autorizados (1 CLIENTE, 2 MECANICO_INDEPENDIENTE,
+        // 3 TALLER). Impide escalamiento a ADMINISTRADOR o a roles de taller (5/6),
+        // que solo pueden crearlos un ADMIN o el TALLER dueño vía POST /usuarios.
+        const rolesDeRegistro = [1, 2, 3];
+        if (!rolesDeRegistro.includes(Number(createUsuarioDto?.role_id))) {
+            throw new BadRequestException('Rol no válido para registro. Usa CLIENTE, MECANICO_INDEPENDIENTE o TALLER.');
+        }
+
+        // Crear usuario a traves de usuariosService
         const usuarioCreado = await this.usuariosService.crearUsuario(createUsuarioDto);
-        // Obtener usuario con su relación de rol completa
-        const usuario = await this.usuariosService.buscarPorEmail(usuarioCreado.email);
+        // Obtener usuario con su rol completo. Lectura en MASTER: recien escrito
+        // en el primario; la replica todavia no lo tiene (lag ~100ms).
+        const usuario = await this.usuariosService.buscarPorEmail(usuarioCreado.email, { master: true });
         
         if (!usuario) {
             throw new UnauthorizedException('Error al crear el usuario');
         }
 
-        const payload = { sub: usuario.id, email: usuario.email, role: usuario.role?.nombre };
+        const payload = this.firmarPayload(usuario);
 
         return {
             access_token: this.jwtService.sign(payload),
@@ -69,6 +78,16 @@ export class AuthService {
                 rut: usuario.rut,
                 role: usuario.role,
             }
+        };
+    }
+
+    /** Payload del JWT: identidad + tenant (taller) para el scoping por dueño. */
+    private firmarPayload(usuario: { id: number; email: string; role?: { nombre?: string } | null; taller_id?: number | null }) {
+        return {
+            sub: usuario.id,
+            email: usuario.email,
+            role: usuario.role?.nombre ?? null,
+            taller_id: usuario.taller_id ?? null,
         };
     }
 

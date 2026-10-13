@@ -1,13 +1,15 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PrediccionesService } from './predicciones.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@ApiTags('predicciones')
+@ApiBearerAuth()
 @Controller('predicciones')
-@UseGuards(JwtAuthGuard)
 export class PrediccionesController {
     constructor(private readonly prediccionesService: PrediccionesService) { }
 
     @Post('generar')
+    @ApiOperation({ summary: 'Generar predicción IA de mantención para un vehículo' })
     async generarPrediccion(
         @Body() body: { vehiculo_id: number; kilometraje_actual: number; marca: string; modelo: string; tipo_uso: string }
     ) {

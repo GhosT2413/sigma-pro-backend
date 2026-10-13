@@ -30,21 +30,38 @@ export class RolesService {
       'RECEPCIONISTA': 'RECEPCIONISTA',
     };
     for (const [oldName, newName] of Object.entries(legacyNames)) {
-      const legacy = await this.rolesRepository.findOne({ where: { nombre: oldName } });
-      if (legacy) {
-        legacy.nombre = newName;
-        await this.rolesRepository.save(legacy);
-        this.logger.log(`Rol renombrado: ${oldName} → ${newName}`);
+      try {
+        const legacy = await this.rolesRepository.findOne({ where: { nombre: oldName } });
+        if (legacy) {
+          legacy.nombre = newName;
+          await this.rolesRepository.save(legacy);
+          this.logger.log(`Rol renombrado: ${oldName} → ${newName}`);
+        }
+      } catch (error) {
+        if (!this.esDuplicado(error)) throw error;
+        // Otra instancia del backend ya hizo el cambio (semilla idempotente).
       }
     }
 
     for (const role of roles) {
-      const existe = await this.rolesRepository.findOne({ where: { nombre: role.nombre } });
-      if (!existe) {
-        await this.rolesRepository.save(this.rolesRepository.create(role));
-        this.logger.log(`Rol creado: ${role.nombre} (id: ${role.id})`);
+      try {
+        const existe = await this.rolesRepository.findOne({ where: { nombre: role.nombre } });
+        if (!existe) {
+          await this.rolesRepository.save(this.rolesRepository.create(role));
+          this.logger.log(`Rol creado: ${role.nombre} (id: ${role.id})`);
+        }
+      } catch (error) {
+        if (!this.esDuplicado(error)) throw error;
+        // Otra instancia ya lo creó al arrancar en paralelo.
       }
     }
+  }
+
+  /** Detecta colisiones de clave única (2 réplicas del backend corriendo la semilla a la vez). */
+  private esDuplicado(error: unknown): boolean {
+    const err = error as { code?: string; driverError?: { code?: string } };
+    const code = err?.driverError?.code ?? err?.code;
+    return code === 'ER_DUP_ENTRY' || code === 'ER_DUP_ENTRY_WITH_KEY_NAME';
   }
 
   async obtenerTodos(): Promise<Role[]> {

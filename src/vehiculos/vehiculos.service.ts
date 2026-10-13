@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vehiculo } from './vehiculo.entity';
@@ -7,6 +7,7 @@ import { UpdateVehiculoDto } from './dto/update-vehiculo.dto';
 import { UpdateKilometrajeDto } from './dto/update-kilometraje.dto';
 import { formatearPatente } from './validators/patente.validator';
 import { Cliente } from '../clientes/cliente.entity';
+import { UsuarioJwt } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class VehiculosService {
@@ -17,12 +18,20 @@ export class VehiculosService {
         private clientesRepository: Repository<Cliente>,
     ) { }
 
-    // Obtener todos los vehículos (con cliente anidado, como espera el frontend)
-    async obtenerTodos(): Promise<Vehiculo[]> {
+    // Obtener todos los vehículos (con cliente anidado, como espera el frontend).
+    // Scoping: CLIENTE solo ve los suyos; el resto del personal ve todos.
+    async obtenerTodos(user?: UsuarioJwt): Promise<Vehiculo[]> {
+        if (user?.role === 'CLIENTE') {
+            return await this.vehiculosRepository
+                .createQueryBuilder('v')
+                .leftJoinAndSelect('v.cliente', 'cliente')
+                .where('cliente.usuario_id = :userId', { userId: user.userId })
+                .getMany();
+        }
         return await this.vehiculosRepository.find({ relations: { cliente: true } });
     }
 
-    async obtenerPorId(id: number): Promise<Vehiculo> {
+    async obtenerPorId(id: number, user?: UsuarioJwt): Promise<Vehiculo> {
         const vehiculo = await this.vehiculosRepository.findOne({
             where: { id },
             relations: { cliente: true },
@@ -30,11 +39,33 @@ export class VehiculosService {
         if (!vehiculo) {
             throw new NotFoundException('Vehículo no encontrado.');
         }
+        this.verificarPropiedad(vehiculo, user);
         return vehiculo;
     }
 
+    /** CLIENTE solo puede tocar vehículos de su propio perfil de cliente. */
+    private verificarPropiedad(vehiculo: Vehiculo, user?: UsuarioJwt): void {
+        if (user?.role === 'CLIENTE' && Number(vehiculo.cliente?.usuario_id) !== Number(user.userId)) {
+            throw new ForbiddenException('Este vehículo no te pertenece.');
+        }
+    }
+
     // Crear un nuevo vehículo
-    async crearVehiculo(createVehiculoDto: CreateVehiculoDto): Promise<{ mensaje: string; vehiculo: Vehiculo }> {
+    async crearVehiculo(
+        createVehiculoDto: CreateVehiculoDto,
+        user?: UsuarioJwt,
+    ): Promise<{ mensaje: string; vehiculo: Vehiculo }> {
+        // Scoping: un CLIENTE siempre registra vehículos sobre su propio cliente.
+        if (user?.role === 'CLIENTE') {
+            const clientePropio = await this.clientesRepository.findOne({
+                where: { usuario_id: user.userId },
+            });
+            if (!clientePropio) {
+                throw new BadRequestException('Primero debes crear tu perfil de cliente para registrar vehículos.');
+            }
+            createVehiculoDto = { ...createVehiculoDto, cliente_id: clientePropio.id };
+        }
+
         // Formatear patente a mayúsculas automáticamente
         const patenteFormateada = formatearPatente(createVehiculoDto.patente);
 
@@ -76,8 +107,8 @@ export class VehiculosService {
         return { mensaje: 'El vehículo fue creado exitosamente.', vehiculo: vehiculoGuardado };
     }
 
-    async actualizar(id: number, dto: UpdateVehiculoDto): Promise<{ mensaje: string; vehiculo: Vehiculo }> {
-        const vehiculo = await this.obtenerPorId(id);
+    async actualizar(id: number, dto: UpdateVehiculoDto, user?: UsuarioJwt): Promise<{ mensaje: string; vehiculo: Vehiculo }> {
+        const vehiculo = await this.obtenerPorId(id, user);
 
         if (dto.cliente_id !== undefined) {
             const clienteExiste = await this.clientesRepository.findOne({ where: { id: dto.cliente_id } });
@@ -112,18 +143,22 @@ export class VehiculosService {
         return { mensaje: 'El vehículo fue actualizado exitosamente.', vehiculo: vehiculoActualizado };
     }
 
-    async eliminar(id: number): Promise<{ mensaje: string }> {
-        const vehiculo = await this.obtenerPorId(id);
+    async eliminar(id: number, user?: UsuarioJwt): Promise<{ mensaje: string }> {
+        const vehiculo = await this.obtenerPorId(id, user);
         await this.vehiculosRepository.remove(vehiculo);
         return { mensaje: `Vehículo con ID ${id} eliminado correctamente.` };
     }
 
-    async actualizarKilometraje(id: number, updateDto: UpdateKilometrajeDto): Promise<Vehiculo> {
-        const vehiculo = await this.vehiculosRepository.findOne({ where: { id } });
+    async actualizarKilometraje(id: number, updateDto: UpdateKilometrajeDto, user?: UsuarioJwt): Promise<Vehiculo> {
+        const vehiculo = await this.vehiculosRepository.findOne({
+            where: { id },
+            relations: { cliente: true },
+        });
 
         if (!vehiculo) {
             throw new NotFoundException('Vehículo no encontrado.');
         }
+        this.verificarPropiedad(vehiculo, user);
 
         // Regla de Negocio RF-06: El nuevo kilometraje no puede ser inferior al actual
         if (updateDto.nuevo_kilometraje < vehiculo.kilometraje_actual) {

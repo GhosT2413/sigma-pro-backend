@@ -25,7 +25,7 @@ export class EmailService implements OnModuleInit {
 
   private async initializeTransporter() {
     const smtpHost = this.configService.get('SMTP_HOST');
-    const smtpPort = this.configService.get('SMTP_PORT', 587);
+    const smtpPort = Number(this.configService.get('SMTP_PORT', 587));
     const smtpUser = this.configService.get('SMTP_USER');
     const smtpPass = this.configService.get('SMTP_PASS');
     const smtpSecure = this.configService.get('SMTP_SECURE', 'false') === 'true';
@@ -40,8 +40,14 @@ export class EmailService implements OnModuleInit {
           pass: smtpPass,
         },
       });
-      this.logger.log('[EmailService] SMTP transporter configured');
+      this.logger.log(`[EmailService] SMTP transporter configured (host=${smtpHost}, port=${smtpPort}, secure=${smtpSecure}, user=${smtpUser})`);
     } else {
+      // Fallback de desarrollo: Ethereal genera una cuenta descartable y el correo
+      // NO llega a la bandeja real; solo sirve para ver el preview en el log.
+      this.logger.warn(
+        '[EmailService] SMTP_USER/SMTP_PASS no configurados: usando cuenta Ethereal de prueba. ' +
+          'Los correos NO llegarán a una bandeja real. Configura las credenciales SMTP para producción.',
+      );
       const testAccount = await nodemailer.createTestAccount();
       this.transporter = createTransport({
         host: 'smtp.ethereal.email',
@@ -63,6 +69,9 @@ export class EmailService implements OnModuleInit {
       this.logger.log('[EmailService] SMTP connection verified');
     } catch (error) {
       this.logger.error('[EmailService] SMTP connection failed:', error);
+      this.logger.error(
+        '[EmailService] Si usas Gmail: revisa que SMTP_USER sea tu correo Gmail y SMTP_PASS sea una "Contraseña de App" de 16 caracteres (no tu contraseña normal).',
+      );
     }
   }
 

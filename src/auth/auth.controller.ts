@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Get, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CreateUsuarioDto } from '../usuarios/create-usuario.dto';
 import { LoginDto } from './login.dto';
@@ -35,7 +36,8 @@ export class AuthController {
     @Public()
     @Post('forgot-password')
     @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Solicitar restablecimiento de contraseña' })
+    @Throttle({ default: { limit: 5, ttl: 300_000 } })
+    @ApiOperation({ summary: 'Solicitar restablecimiento de contraseña (envía correo)' })
     async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
         return this.authService.forgotPassword(forgotPasswordDto.email);
     }
@@ -43,6 +45,7 @@ export class AuthController {
     @Public()
     @Post('reset-password')
     @HttpCode(HttpStatus.OK)
+    @Throttle({ default: { limit: 10, ttl: 300_000 } })
     @ApiOperation({ summary: 'Restablecer contraseña con token' })
     async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
         return this.authService.resetPassword(

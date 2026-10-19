@@ -1,11 +1,14 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { EmailService } from '../messaging/email.service';
 
 @Injectable()
 export class AuthService {
+    private readonly logger = new Logger(AuthService.name);
+
     constructor(
         private usuariosService: UsuariosService,
         private jwtService: JwtService,
@@ -108,18 +111,42 @@ export class AuthService {
         };
     }
 
+    /**
+     * Huella corta del hash bcrypt actual del usuario. bcrypt genera salt propio,
+     * así que la huella cambia en cada cambio de contraseña. Se firma dentro del
+     * JWT de restablecimiento para que el token quede de un solo uso: al cambiar
+     * la contraseña, la huella deja de coincidir y el token viejo deja de servir.
+     */
+    private huellaPassword(passwordHash: string): string {
+        return createHash('sha256').update(passwordHash).digest('hex').slice(0, 32);
+    }
+
     async forgotPassword(email: string) {
-        const usuario = await this.usuariosService.buscarPorEmail(email);
+        // Lectura en primario: si el usuario recién se registró, la réplica puede
+        // no tenerlo todavía y no encontraríamos su correo.
+        const usuario = await this.usuariosService.buscarPorEmail(email, { master: true });
         if (!usuario) {
             return { message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña' };
         }
 
         const resetToken = this.jwtService.sign(
-            { sub: usuario.id, email: usuario.email, type: 'password-reset' },
+            {
+                sub: usuario.id,
+                email: usuario.email,
+                type: 'password-reset',
+                pwdv: this.huellaPassword(usuario.password_hash),
+            },
             { expiresIn: '1h' }
         );
 
-        await this.emailService.sendPasswordResetEmail(email, resetToken);
+        const resultado = await this.emailService.sendPasswordResetEmail(email, resetToken);
+        if (!resultado?.success) {
+            // No rompemos la respuesta (anti-enumeración), pero dejamos el rastro
+            // para diagnosticar: sin SMTP configurado el correo nunca llega.
+            this.logger.error(
+                `No se pudo enviar el correo de recuperación a ${email}. Revisa la configuración SMTP_HOST/SMTP_USER/SMTP_PASS.`
+            );
+        }
 
         return { message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña' };
     }
@@ -129,7 +156,7 @@ export class AuthService {
             throw new BadRequestException('Las contraseñas no coinciden');
         }
 
-        let payload: { sub: number; email: string; type: string };
+        let payload: { sub: number; email: string; type: string; pwdv?: string };
         try {
             payload = this.jwtService.verify(token);
         } catch (error) {
@@ -140,15 +167,20 @@ export class AuthService {
             throw new UnauthorizedException('Token inválido');
         }
 
-        const usuario = await this.usuariosService.buscarPorId(payload.sub);
-        if (!usuario || usuario.email !== payload.email) {
+        const usuario = await this.usuariosService.buscarPorEmail(payload.email, { master: true });
+        if (!usuario || usuario.id !== payload.sub) {
             throw new UnauthorizedException('Token inválido');
         }
 
-        const saltOrRounds = 12;
-        const passwordHash = await bcrypt.hash(newPassword, saltOrRounds);
+        // Token de un solo uso: la huella firmada debe coincidir con el hash actual.
+        if (!payload.pwdv || payload.pwdv !== this.huellaPassword(usuario.password_hash)) {
+            throw new UnauthorizedException('El enlace ya fue utilizado o fue reemplazado. Solicita uno nuevo.');
+        }
 
-        await this.usuariosService.actualizar(payload.sub, { password_hash: passwordHash });
+        // UsuariosService.actualizar se encarga de encriptar con bcrypt (cost 12),
+        // así que aquí va la contraseña en plano: hashearla antes produciría un
+        // doble hash y el login fallaría siempre.
+        await this.usuariosService.actualizar(usuario.id, { password_hash: newPassword });
 
         return { message: 'Contraseña actualizada correctamente' };
     }
@@ -168,10 +200,8 @@ export class AuthService {
             throw new UnauthorizedException('Contraseña actual incorrecta');
         }
 
-        const saltOrRounds = 12;
-        const passwordHash = await bcrypt.hash(newPassword, saltOrRounds);
-
-        await this.usuariosService.actualizar(userId, { password_hash: passwordHash });
+        // Contraseña en plano: UsuariosService.actualizar la encripta (ver arriba).
+        await this.usuariosService.actualizar(userId, { password_hash: newPassword });
 
         return { message: 'Contraseña cambiada correctamente' };
     }

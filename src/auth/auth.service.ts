@@ -1,19 +1,99 @@
 import { Injectable, Logger, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { EmailService } from '../messaging/email.service';
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class AuthService {
     private readonly logger = new Logger(AuthService.name);
+    private googleClient: OAuth2Client;
 
     constructor(
         private usuariosService: UsuariosService,
         private jwtService: JwtService,
-        private emailService: EmailService
-    ) { }
+        private emailService: EmailService,
+        private configService: ConfigService,
+    ) {
+        const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+        this.googleClient = new OAuth2Client(googleClientId);
+    }
+
+    async loginWithGoogle(idToken: string, roleId?: number) {
+        try {
+            const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+            const ticket = await this.googleClient.verifyIdToken({
+                idToken,
+                audience: googleClientId,
+            });
+
+            const payload = ticket.getPayload();
+            if (!payload || !payload.email) {
+                throw new UnauthorizedException('Token de Google inválido');
+            }
+
+            const googleId = payload.sub;
+            const email = payload.email.toLowerCase();
+            const nombre = payload.name || payload.given_name || 'Usuario Google';
+            const foto = payload.picture;
+
+            // 1. Buscar si ya existe por Google ID
+            let usuario = await this.usuariosService.buscarPorGoogleId(googleId);
+
+            // 2. Si no, buscar por email
+            if (!usuario) {
+                usuario = await this.usuariosService.buscarPorEmail(email, { master: true });
+                if (usuario) {
+                    // Vincular google_id al usuario existente
+                    await this.usuariosService.actualizar(usuario.id, { google_id: googleId } as any);
+                    usuario.google_id = googleId;
+                }
+            }
+
+            // 3. Si no existe, crearlo con el rol especificado (o CLIENTE por defecto)
+            if (!usuario) {
+                const rolValido = roleId && [1, 2, 3].includes(Number(roleId)) ? Number(roleId) : 1;
+                usuario = await this.usuariosService.crearUsuarioOAuth({
+                    email,
+                    nombre_completo: nombre,
+                    google_id: googleId,
+                    foto_perfil_url: foto,
+                    role_id: rolValido,
+                });
+                usuario = await this.usuariosService.buscarPorId(usuario.id);
+            }
+
+            if (!usuario || !usuario.activo) {
+                throw new UnauthorizedException('Cuenta inactiva o deshabilitada');
+            }
+
+            const jwtPayload = this.firmarPayload(usuario);
+
+            return {
+                access_token: this.jwtService.sign(jwtPayload),
+                usuario: {
+                    id: usuario.id,
+                    nombre_completo: usuario.nombre_completo,
+                    email: usuario.email,
+                    telefono: usuario.telefono,
+                    fecha_nacimiento: usuario.fecha_nacimiento,
+                    foto_perfil_url: usuario.foto_perfil_url,
+                    rut: usuario.rut,
+                    role: usuario.role,
+                },
+            };
+        } catch (error: any) {
+            this.logger.error(`Error en autenticación Google: ${error?.message || error}`);
+            if (error instanceof UnauthorizedException) {
+                throw error;
+            }
+            throw new UnauthorizedException('No se pudo verificar la cuenta de Google');
+        }
+
+    }
 
     async login(email: string, password_plana: string) {
         // 1. Buscar al usuario usando el método

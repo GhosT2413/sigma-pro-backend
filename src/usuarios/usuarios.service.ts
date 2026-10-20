@@ -164,6 +164,37 @@ export class UsuariosService {
         });
     }
 
+    // Buscar usuario por Google ID
+    async buscarPorGoogleId(googleId: string): Promise<Usuario | null> {
+        return await this.usuariosRepository.findOne({
+            where: { google_id: googleId },
+            relations: { role: true, taller: true },
+        });
+    }
+
+    // Crear usuario registrado vía OAuth2 (Google)
+    async crearUsuarioOAuth(datos: {
+        email: string;
+        nombre_completo: string;
+        google_id: string;
+        foto_perfil_url?: string;
+        role_id?: number;
+    }): Promise<Usuario> {
+        const roleId = datos.role_id || 1;
+        const nuevo = this.usuariosRepository.create({
+            email: datos.email,
+            nombre_completo: datos.nombre_completo,
+            google_id: datos.google_id,
+            foto_perfil_url: datos.foto_perfil_url ?? null,
+            password_hash: null as unknown as string,
+            hasAcceptedTerms: true,
+            activo: true,
+            role: { id: roleId },
+        } as unknown as DeepPartial<Usuario>);
+
+        return await this.usuariosRepository.save(nuevo);
+    }
+
     // NUEVA FUNCIÓN: Filtrar usuarios por su ID de Rol (RF-16: Mi Equipo)
     async obtenerPorRol(roleId: number): Promise<Usuario[]> {
         return await this.usuariosRepository.find({

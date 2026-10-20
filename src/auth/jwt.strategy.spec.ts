@@ -1,10 +1,14 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
+import { UsuariosService } from '../usuarios/usuarios.service';
 
-function crearStrategy() {
+function crearStrategy(usuarioMock: any = { id: 1, email: 'u@u.cl', activo: true, role: { nombre: 'CLIENTE' }, taller_id: null }) {
   const configService = { get: jest.fn().mockReturnValue('secreto-de-prueba') } as unknown as ConfigService;
-  return new JwtStrategy(configService);
+  const usuariosService = {
+    buscarPorId: jest.fn().mockResolvedValue(usuarioMock),
+  } as unknown as UsuariosService;
+  return new JwtStrategy(configService, usuariosService);
 }
 
 describe('JwtStrategy', () => {

@@ -5,12 +5,21 @@ import { AuthService } from './auth.service';
 import { CreateUsuarioDto } from '../usuarios/create-usuario.dto';
 import { LoginDto } from './login.dto';
 import { ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dto/password-recovery.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
     constructor(private authService: AuthService) { }
+
+    @Public()
+    @Post('google')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Iniciar sesión o registrarse con Google OAuth2' })
+    loginGoogle(@Body() dto: GoogleLoginDto) {
+        return this.authService.loginWithGoogle(dto.idToken, dto.role_id);
+    }
 
     @Public()
     @Post('login')

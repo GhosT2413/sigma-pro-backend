@@ -13,8 +13,11 @@ export class Usuario {
     @Column({ type: 'varchar', length: 150, unique: true })
     email: string;
 
-    @Column({ type: 'varchar', length: 255 })
+    @Column({ type: 'varchar', length: 255, nullable: true })
     password_hash: string;
+
+    @Column({ type: 'varchar', length: 100, nullable: true, unique: true })
+    google_id: string;
 
     @Column({ type: 'varchar', length: 30, nullable: true })
     telefono: string;

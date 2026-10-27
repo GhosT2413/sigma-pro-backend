@@ -34,17 +34,17 @@ export class Usuario {
     @Column({ type: 'date', nullable: true })
     fecha_nacimiento: Date;
 
-    @Column({ type: 'text', nullable: true })
+    @Column({ type: 'longtext', nullable: true })
     foto_perfil_url: string;
 
     // ── Mecánico Independiente: documentación ──
-    @Column({ type: 'text', nullable: true })
+    @Column({ type: 'longtext', nullable: true })
     cedula_frente_url: string;
 
-    @Column({ type: 'text', nullable: true })
+    @Column({ type: 'longtext', nullable: true })
     cedula_reverso_url: string;
 
-    @Column({ type: 'text', nullable: true })
+    @Column({ type: 'longtext', nullable: true })
     certificado_antecedentes_url: string;
 
     // ── Taller Mecánico: documentación ──
@@ -54,7 +54,7 @@ export class Usuario {
     @Column({ type: 'varchar', length: 20, nullable: true })
     patente_comercial: string;
 
-    @Column({ type: 'text', nullable: true })
+    @Column({ type: 'longtext', nullable: true })
     comprobante_domicilio_url: string;
 
     @Column({ type: 'varchar', length: 200, nullable: true })

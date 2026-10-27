@@ -82,6 +82,7 @@ export class AuthService {
                     fecha_nacimiento: usuario.fecha_nacimiento,
                     foto_perfil_url: usuario.foto_perfil_url,
                     rut: usuario.rut,
+                    google_id: usuario.google_id,
                     role: usuario.role,
                 },
             };

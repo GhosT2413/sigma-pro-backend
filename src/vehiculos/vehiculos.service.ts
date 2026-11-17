@@ -50,6 +50,18 @@ export class VehiculosService {
         }
     }
 
+    /**
+     * Quita del payload los campos de identidad del vehículo (patente, marca,
+     * modelo y año): el Cliente no puede modificarlos al editar. El resto de los
+     * datos (tipo de uso, estado, documentos, etc.) sí sigue siendo editable.
+     * Se usa destructuring porque el DTO declara esos campos como `readonly`
+     * (no admite el operador `delete`).
+     */
+    private excluirIdentidadVehiculo(dto: UpdateVehiculoDto): UpdateVehiculoDto {
+        const { patente: _patente, marca: _marca, modelo: _modelo, anio: _anio, ...resto } = dto;
+        return resto;
+    }
+
     // Crear un nuevo vehículo
     async crearVehiculo(
         createVehiculoDto: CreateVehiculoDto,
@@ -109,6 +121,14 @@ export class VehiculosService {
 
     async actualizar(id: number, dto: UpdateVehiculoDto, user?: UsuarioJwt): Promise<{ mensaje: string; vehiculo: Vehiculo }> {
         const vehiculo = await this.obtenerPorId(id, user);
+
+        // Regla de negocio: el Cliente NO puede alterar la identidad del vehículo
+        // (patente, marca, modelo ni año). Esos datos los valida/corrige el taller
+        // (ADMINISTRADOR); si el editor es CLIENTE simplemente se ignoran.
+        // El RUT no aplica acá: no viaja en este DTO (el formulario lo bloquea).
+        if (user?.role === 'CLIENTE') {
+            dto = this.excluirIdentidadVehiculo(dto);
+        }
 
         if (dto.cliente_id !== undefined) {
             const clienteExiste = await this.clientesRepository.findOne({ where: { id: dto.cliente_id } });

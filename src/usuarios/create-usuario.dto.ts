@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsEmail, IsOptional, IsInt, IsBoolean, MinLength, IsDateString, Validate } from 'class-validator';
+import { IsNotEmpty, IsString, IsEmail, IsOptional, IsInt, IsBoolean, MinLength, Validate } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IsRutChilenoConstraint } from '../clientes/validators/rut.validator';
 
@@ -35,10 +35,6 @@ export class CreateUsuarioDto {
     @IsString()
     @Validate(IsRutChilenoConstraint)
     readonly rut?: string;
-
-    @IsOptional()
-    @IsDateString({}, { message: 'La fecha de nacimiento debe ser una fecha válida (YYYY-MM-DD)' })
-    readonly fecha_nacimiento?: string;
 
     // ── Asociación a Taller (para MECANICO=5, RECEPCIONISTA=6) ──
     @IsOptional()

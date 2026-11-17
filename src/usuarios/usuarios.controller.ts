@@ -150,7 +150,7 @@ export class UsuariosController {
         if (Number(id) === Number(user.userId)) {
             // EdiciÃ³n del propio perfil: nunca rol, taller, activo ni contraseÃ±a.
             const data = this.soloCampos(updateUsuarioDto, [
-                'nombre_completo', 'email', 'telefono', 'rut', 'fecha_nacimiento', 'foto_perfil_url',
+                'nombre_completo', 'email', 'telefono', 'rut', 'foto_perfil_url',
             ]);
             return this.sanitar(await this.usuariosService.actualizar(id, data) as unknown as Record<string, unknown>);
         }

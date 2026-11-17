@@ -117,7 +117,6 @@ export class UsuariosService {
             hasAcceptedTerms: true,
             role: { id: roleId },
             rut: createUsuarioDto.rut ? formatearRutBackend(createUsuarioDto.rut) : null,
-            fecha_nacimiento: createUsuarioDto.fecha_nacimiento ? new Date(createUsuarioDto.fecha_nacimiento) : null,
             // Mecánico Independiente
             cedula_frente_url: createUsuarioDto.cedula_frente_url ?? null,
             cedula_reverso_url: createUsuarioDto.cedula_reverso_url ?? null,

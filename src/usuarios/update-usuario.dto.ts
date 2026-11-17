@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsDateString, IsBoolean, IsInt, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsInt, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateUsuarioDto {
@@ -26,10 +26,6 @@ export class UpdateUsuarioDto {
     @IsOptional()
     @IsBoolean()
     readonly activo?: boolean;
-
-    @IsOptional()
-    @IsDateString({}, { message: 'La fecha de nacimiento debe tener formato YYYY-MM-DD' })
-    readonly fecha_nacimiento?: string;
 
     @IsOptional()
     @IsString()

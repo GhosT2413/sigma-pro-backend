@@ -31,9 +31,6 @@ export class Usuario {
     @Column({ type: 'boolean', default: false })
     hasAcceptedTerms: boolean;
 
-    @Column({ type: 'date', nullable: true })
-    fecha_nacimiento: Date;
-
     @Column({ type: 'longtext', nullable: true })
     foto_perfil_url: string;
 
